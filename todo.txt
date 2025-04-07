@@ -1,0 +1,7 @@
+mark tasks as complete 
+when click the card go to the detail page for a habit
+fix the ui margins and paddings
+mobile view 
+
+
+deploy

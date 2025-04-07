@@ -1,14 +1,18 @@
-import { notFound } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarView } from "@/components/calendar-view"
-import { NotificationsTab } from "@/components/notifications-tab"
-import prisma from "@/lib/db"
-import { ArrowLeft } from 'lucide-react'
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarView } from "@/components/calendar-view";
+import { NotificationsTab } from "@/components/notifications-tab";
+import prisma from "@/lib/db";
+import { ArrowLeft } from "lucide-react";
 
-export default async function PlanDetailsPage({ params }: { params: { id: string } }) {
+export default async function PlanDetailsPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   // Fetch plan and appointments from database
   const plan = await prisma.plan.findUnique({
     where: {
@@ -17,10 +21,10 @@ export default async function PlanDetailsPage({ params }: { params: { id: string
     include: {
       appointments: true,
     },
-  })
+  });
 
   if (!plan) {
-    notFound()
+    notFound();
   }
 
   // Format appointments for the calendar view
@@ -31,15 +35,20 @@ export default async function PlanDetailsPage({ params }: { params: { id: string
     amount: appointment.amount,
     measureUnit: appointment.measureUnit,
     completed: appointment.completed,
-  }))
+  }));
 
   // Calculate progress
-  const totalAppointments = plan.appointments.length
-  const completedAppointments = plan.appointments.filter((a) => a.completed).length
-  const progress = totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0
+  const totalAppointments = plan.appointments.length;
+  const completedAppointments = plan.appointments.filter(
+    (a) => a.completed
+  ).length;
+  const progress =
+    totalAppointments > 0
+      ? Math.round((completedAppointments / totalAppointments) * 100)
+      : 0;
 
   return (
-    <div className="container py-10">
+    <div className="container px-4 sm:px-6 py-6 sm:py-10 max-w-7xl mx-auto">
       <div className="mb-6">
         <Button variant="ghost" asChild className="mb-4">
           <Link href="/">
@@ -59,7 +68,8 @@ export default async function PlanDetailsPage({ params }: { params: { id: string
           <CardContent>
             <div className="text-3xl font-bold">{progress}%</div>
             <p className="text-sm text-muted-foreground">
-              {completedAppointments} of {totalAppointments} activities completed
+              {completedAppointments} of {totalAppointments} activities
+              completed
             </p>
           </CardContent>
         </Card>
@@ -69,8 +79,12 @@ export default async function PlanDetailsPage({ params }: { params: { id: string
             <CardTitle className="text-lg">Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-medium capitalize">{plan.category}</div>
-            <p className="text-sm text-muted-foreground">Created on {new Date(plan.createdAt).toLocaleDateString()}</p>
+            <div className="text-xl font-medium capitalize">
+              {plan.category}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Created on {new Date(plan.createdAt).toLocaleDateString()}
+            </p>
           </CardContent>
         </Card>
 
@@ -97,6 +111,5 @@ export default async function PlanDetailsPage({ params }: { params: { id: string
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
-
