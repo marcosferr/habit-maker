@@ -1,11 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import {
+  CalendarDays,
+  CalendarClock,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 
 type Appointment = {
   id: string;
@@ -27,6 +52,47 @@ type CalendarViewProps = {
 export function CalendarView({ appointments, planId }: CalendarViewProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({});
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [selectedAppointments, setSelectedAppointments] = useState<string[]>(
+    []
+  );
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [exportSettings, setExportSettings] = useState({
+    exportAsTask: false,
+    includeAmount: true,
+    includeMeasureUnit: true,
+    addReminders: true,
+    reminderMinutes: 30,
+  });
+
+  // Check if Google Calendar is connected
+  useEffect(() => {
+    async function checkGoogleConnection() {
+      try {
+        const response = await fetch("/api/calendar/settings");
+
+        if (response.ok) {
+          const data = await response.json();
+          setGoogleConnected(data.connected);
+
+          if (data.settings) {
+            setExportSettings({
+              exportAsTask: data.settings.exportAsTask,
+              includeAmount: data.settings.includeAmount,
+              includeMeasureUnit: data.settings.includeMeasureUnit,
+              addReminders: data.settings.addReminders,
+              reminderMinutes: data.settings.reminderMinutes,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error checking Google connection:", error);
+      }
+    }
+
+    checkGoogleConnection();
+  }, []);
 
   // Convert all dateStart to Date objects
   const processedAppointments = appointments.map((appointment) => ({
@@ -129,11 +195,269 @@ export function CalendarView({ appointments, planId }: CalendarViewProps) {
     }
   };
 
+  // Handle export to Google Calendar
+  const handleExportToGoogle = async () => {
+    try {
+      setIsExporting(true);
+
+      // If no appointments are selected, use all appointments for the selected date
+      const appointmentsToExport =
+        selectedAppointments.length > 0
+          ? selectedAppointments
+          : selectedDateAppointments.map((a) => a.id);
+
+      if (appointmentsToExport.length === 0) {
+        toast({
+          title: "No appointments selected",
+          description: "Please select at least one appointment to export",
+          variant: "destructive",
+        });
+        setIsExporting(false);
+        return;
+      }
+
+      const response = await fetch("/api/calendar/export", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          appointmentIds: appointmentsToExport,
+          exportAsTask: exportSettings.exportAsTask,
+          includeAmount: exportSettings.includeAmount,
+          includeMeasureUnit: exportSettings.includeMeasureUnit,
+          addReminders: exportSettings.addReminders,
+          reminderMinutes: exportSettings.reminderMinutes,
+          userId: "user-id-placeholder",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Failed to export to Google Calendar"
+        );
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: "Export Successful",
+        description: data.message,
+      });
+
+      // Close the dialog
+      setExportDialogOpen(false);
+      // Clear selected appointments
+      setSelectedAppointments([]);
+    } catch (error) {
+      console.error("Error exporting to Google Calendar:", error);
+      toast({
+        title: "Export Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to export to Google Calendar",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Toggle appointment selection for export
+  const toggleAppointmentSelection = (id: string) => {
+    setSelectedAppointments((prev) =>
+      prev.includes(id)
+        ? prev.filter((appointmentId) => appointmentId !== id)
+        : [...prev, id]
+    );
+  };
+
+  // Connect to Google Calendar
+  const handleConnectToGoogle = () => {
+    window.location.href = "/api/auth/google?userId=user-id-placeholder";
+  };
+
   return (
     <div className="grid gap-4 grid-cols-1 md:grid-cols-[1fr_300px]">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle>Calendar</CardTitle>
+          <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setSelectedAppointments([])}
+              >
+                <CalendarClock className="h-4 w-4" />
+                Export to Google
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Export to Google Calendar</DialogTitle>
+                <DialogDescription>
+                  Export your appointments to Google Calendar as events or
+                  tasks.
+                </DialogDescription>
+              </DialogHeader>
+
+              {!googleConnected ? (
+                <div className="space-y-4 py-4">
+                  <p className="text-sm">
+                    You need to connect your Google Calendar first.
+                  </p>
+                  <Button onClick={handleConnectToGoogle} className="w-full">
+                    Connect to Google Calendar
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="export-as-task">Export as Tasks</Label>
+                      <Switch
+                        id="export-as-task"
+                        checked={exportSettings.exportAsTask}
+                        onCheckedChange={(checked) =>
+                          setExportSettings({
+                            ...exportSettings,
+                            exportAsTask: checked,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="include-amount">Include Amount</Label>
+                      <Switch
+                        id="include-amount"
+                        checked={exportSettings.includeAmount}
+                        onCheckedChange={(checked) =>
+                          setExportSettings({
+                            ...exportSettings,
+                            includeAmount: checked,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="include-measure-unit">
+                        Include Measure Unit
+                      </Label>
+                      <Switch
+                        id="include-measure-unit"
+                        checked={exportSettings.includeMeasureUnit}
+                        onCheckedChange={(checked) =>
+                          setExportSettings({
+                            ...exportSettings,
+                            includeMeasureUnit: checked,
+                          })
+                        }
+                      />
+                    </div>
+
+                    {!exportSettings.exportAsTask && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="add-reminders">Add Reminders</Label>
+                          <Switch
+                            id="add-reminders"
+                            checked={exportSettings.addReminders}
+                            onCheckedChange={(checked) =>
+                              setExportSettings({
+                                ...exportSettings,
+                                addReminders: checked,
+                              })
+                            }
+                          />
+                        </div>
+
+                        {exportSettings.addReminders && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <Label htmlFor="reminder-minutes">
+                                Reminder Time
+                              </Label>
+                              <span className="text-sm text-muted-foreground">
+                                {exportSettings.reminderMinutes} minutes before
+                              </span>
+                            </div>
+                            <Slider
+                              id="reminder-minutes"
+                              min={5}
+                              max={120}
+                              step={5}
+                              value={[exportSettings.reminderMinutes]}
+                              onValueChange={(value) =>
+                                setExportSettings({
+                                  ...exportSettings,
+                                  reminderMinutes: value[0],
+                                })
+                              }
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {selectedDateAppointments.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Select Appointments to Export</Label>
+                      <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                        {selectedDateAppointments.map((appointment) => (
+                          <div
+                            key={appointment.id}
+                            className="flex items-center space-x-2"
+                          >
+                            <Checkbox
+                              id={`select-${appointment.id}`}
+                              checked={selectedAppointments.includes(
+                                appointment.id
+                              )}
+                              onCheckedChange={() =>
+                                toggleAppointmentSelection(appointment.id)
+                              }
+                            />
+                            <Label
+                              htmlFor={`select-${appointment.id}`}
+                              className="text-sm"
+                            >
+                              {appointment.details} ({appointment.amount}{" "}
+                              {appointment.measureUnit})
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setExportDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleExportToGoogle}
+                  disabled={!googleConnected || isExporting}
+                >
+                  {isExporting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Export to Google
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <Calendar

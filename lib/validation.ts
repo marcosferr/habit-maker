@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod";
 
 // Schema for plan creation input validation
 export const planInputSchema = z.object({
@@ -12,14 +12,24 @@ export const planInputSchema = z.object({
   // More generic fields for all goal types
   experience: z.enum(["beginner", "intermediate", "advanced"]),
   frequency: z.number().int().min(1).max(7),
-  preferredDays: z.array(z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"])),
+  preferredDays: z.array(
+    z.enum([
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ])
+  ),
   constraints: z.string().optional(),
   preferences: z.string(),
   duration: z.number().int().min(1).max(52),
 
   // Category-specific fields
   specificDetails: z.record(z.string()).optional(),
-})
+});
 
 // Schema for appointment creation input validation
 export const appointmentInputSchema = z.object({
@@ -29,22 +39,52 @@ export const appointmentInputSchema = z.object({
   measureUnit: z.string().min(1, "Measure unit is required"),
   planId: z.string().min(1, "Plan ID is required"),
   userId: z.string().min(1, "User ID is required"),
-})
+});
 
 // Schema for appointment update input validation
 export const appointmentUpdateSchema = z.object({
   id: z.string().min(1, "Appointment ID is required"),
   dateStart: z.string().or(z.date()).optional(),
-  details: z.string().min(3, "Details must be at least 3 characters").optional(),
+  details: z
+    .string()
+    .min(3, "Details must be at least 3 characters")
+    .optional(),
   amount: z.number().int().positive().optional(),
   measureUnit: z.string().min(1, "Measure unit is required").optional(),
   completed: z.boolean().optional(),
-})
+});
 
 // Schema for notification input validation
 export const notificationInputSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters"),
   message: z.string().min(5, "Message must be at least 5 characters"),
   userId: z.string().min(1, "User ID is required"),
-})
+});
 
+// Schema for Google OAuth token validation
+export const googleTokenSchema = z.object({
+  access_token: z.string(),
+  refresh_token: z.string().optional(),
+  expires_at: z.number(),
+  scope: z.string(),
+  token_type: z.string(),
+});
+
+// Schema for calendar integration settings validation
+export const calendarIntegrationSchema = z.object({
+  exportAsTask: z.boolean().default(false),
+  includeAmount: z.boolean().default(true),
+  includeMeasureUnit: z.boolean().default(true),
+  addReminders: z.boolean().default(true),
+  reminderMinutes: z.number().int().min(0).max(1440).default(30),
+});
+
+// Schema for calendar export options validation
+export const calendarExportSchema = z.object({
+  appointmentIds: z.array(z.string()),
+  exportAsTask: z.boolean().default(false),
+  includeAmount: z.boolean().default(true),
+  includeMeasureUnit: z.boolean().default(true),
+  addReminders: z.boolean().default(true),
+  reminderMinutes: z.number().int().min(0).max(1440).default(30),
+});

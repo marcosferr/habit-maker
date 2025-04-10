@@ -11,14 +11,18 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  plans         Plan[]
-  appointments  Appointment[]
-  notifications Notification[]
+  id                 String               @id @default(cuid())
+  email              String               @unique
+  name               String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  googleAccessToken  String? // Google OAuth access token
+  googleRefreshToken String? // Google OAuth refresh token
+  googleTokenExpiry  DateTime? // When the Google access token expires
+  plans              Plan[]
+  appointments       Appointment[]
+  notifications      Notification[]
+  calendarSettings   CalendarIntegration?
 }
 
 model Plan {
@@ -59,3 +63,16 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model CalendarIntegration {
+  id                 String    @id @default(cuid())
+  exportAsTask       Boolean   @default(false) // Export as Google Tasks instead of Calendar events
+  includeAmount      Boolean   @default(true) // Include amount in event title
+  includeMeasureUnit Boolean   @default(true) // Include measure unit in event title
+  addReminders       Boolean   @default(true) // Add reminders to events
+  reminderMinutes    Int       @default(30) // Minutes before event to send reminder
+  lastSyncedAt       DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  userId             String    @unique // One-to-one relation with User
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
